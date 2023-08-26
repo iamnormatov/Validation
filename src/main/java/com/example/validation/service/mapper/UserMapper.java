@@ -22,4 +22,6 @@ public abstract class UserMapper {
     public abstract UserDto toDto(User user);
     @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
     public abstract void update(UserDto userDto, @MappingTarget User user);
+
+    public abstract UserDto toDtoWithAuthority(User user);
 }

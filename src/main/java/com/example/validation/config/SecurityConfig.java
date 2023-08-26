@@ -1,5 +1,6 @@
 package com.example.validation.config;
 
+import com.example.validation.security.SecurityFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
@@ -8,6 +9,7 @@ import org.springframework.security.config.annotation.authentication.builders.Au
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 import javax.sql.DataSource;
 
@@ -16,15 +18,17 @@ import javax.sql.DataSource;
 public class SecurityConfig {
 
     private final PasswordEncoder passwordEncoder;
-    private final DataSource dataSource;
+    private final SecurityFilter filter;
 
-    @Autowired
-    public void authenticationManagerBuilder(AuthenticationManagerBuilder builder) throws Exception {
-        builder.jdbcAuthentication()
-                .usersByUsernameQuery("select username from users where username = ?")
-                .dataSource(dataSource)
-                .passwordEncoder(passwordEncoder);
-    }
+//    private final DataSource dataSource;
+
+//    @Autowired
+//    public void authenticationManagerBuilder(AuthenticationManagerBuilder builder) throws Exception {
+//        builder.jdbcAuthentication()
+//                .usersByUsernameQuery("select username from users where username = ?")
+//                .dataSource(dataSource)
+//                .passwordEncoder(passwordEncoder);
+//    }
 
 //    @Autowired
 //    public void authenticationManagerBuilder(AuthenticationManagerBuilder builder) throws Exception {
@@ -43,11 +47,12 @@ public class SecurityConfig {
         String[] users = {"/user/create", "/user/get"};
         return http
                 .csrf().disable()
+                .cors().disable()
                 .authorizeHttpRequests()
-                .requestMatchers("/user/**").permitAll()
-                .anyRequest().authenticated()
-                .and().formLogin()
-                .and().build();
+                .requestMatchers("/book/**").permitAll()
+                .anyRequest().authenticated().and()
+                .addFilterBefore(filter, UsernamePasswordAuthenticationFilter.class)
+                .build();
     }
 
 }

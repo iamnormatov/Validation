@@ -12,6 +12,9 @@ import com.example.validation.util.UserRepositoryImpl;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.web.bind.annotation.RequestParam;
 
@@ -22,13 +25,13 @@ import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
-public class UserService implements SimpleCRUD<Integer, UserDto> {
+public class UserService implements UserDetailsService {
+
     private final UserRepository userRepository;
     private final UserMapper userMapper;
     private final UserValidation userValidation;
     private final UserRepositoryImpl userRepositoryImpl;
 
-    @Override
     public ResponseDto<UserDto> create(UserDto dto) {
         List<ErrorDto> errors = this.userValidation.validate(dto);
         if (!errors.isEmpty()) {
@@ -54,7 +57,6 @@ public class UserService implements SimpleCRUD<Integer, UserDto> {
         }
     }
 
-    @Override
     public ResponseDto<UserDto> get(Integer entityId) {
         Optional<User> optional = this.userRepository.findByUserIdAndDeletedAtIsNull(entityId);
         if (optional.isEmpty()) {
@@ -70,7 +72,6 @@ public class UserService implements SimpleCRUD<Integer, UserDto> {
                 .build();
     }
 
-    @Override
     public ResponseDto<UserDto> update(UserDto dto, Integer entityId) {
         List<ErrorDto> errors = this.userValidation.validate(dto);
         if (!errors.isEmpty()) {
@@ -106,7 +107,6 @@ public class UserService implements SimpleCRUD<Integer, UserDto> {
         }
     }
 
-    @Override
     public ResponseDto<UserDto> delete(Integer entityId) {
         Optional<User> optional = this.userRepository.findByUserIdAndDeletedAtIsNull(entityId);
         if (optional.isEmpty()) {
@@ -182,6 +182,13 @@ public class UserService implements SimpleCRUD<Integer, UserDto> {
                 .message("OK")
                 .data(userList.stream().map(this.userMapper::toDto).toList())
                 .build();
+    }
+
+    @Override
+    public UserDto loadUserByUsername(String username) throws UsernameNotFoundException {
+        return this.userRepository.findByUsernameAndEnabledIsTrueAndDeletedAtIsNull(username)
+                .map(this.userMapper::toDto)
+                .orElseThrow(() -> new UsernameNotFoundException(String.format("Auth with %s :: username is not found", username)));
     }
 }
 
