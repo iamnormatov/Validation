@@ -11,6 +11,10 @@ import javax.sql.DataSource;
 
 @Configuration
 public class Encoder {
+    @Bean
+    public PasswordEncoder password() {
+        return new BCryptPasswordEncoder();
+    }
 
 //    @Value(value = "${spring.datasource.url}")
 //    private String url;
@@ -20,10 +24,6 @@ public class Encoder {
 //
 //    @Value(value = "${spring.datasource.password}")
 //    private String password;
-    @Bean
-    public PasswordEncoder password() {
-        return new BCryptPasswordEncoder();
-    }
 
 //    @Bean
 //    public DataSource dataSource(){
