@@ -24,11 +24,12 @@ public class UserDto implements UserDetails {
     private Integer userId;
     private String firstName;
     private String lastName;
-    private String username;
-    private Boolean enabled;
     private Integer age;
     private String email;
+
+    private String username;
     private String password;
+    private Boolean enabled;
 
     private Set<Authorities> authorities;
 

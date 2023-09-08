@@ -30,4 +30,6 @@ public interface UserRepository extends JpaRepository<User, Integer> {
     List<User> findAllByDeletedAtIsNull();
 
     Optional<User> findByUsernameAndEnabledIsTrueAndDeletedAtIsNull(String username);
+
+    Optional<User> findByUsernameAndDeletedAtIsNull(String username);
 }

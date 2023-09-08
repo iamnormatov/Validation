@@ -37,6 +37,7 @@ public class User {
     private String lastName;
     private String username;
     private Boolean enabled;
+    private String code;
     private Integer age;
     private String email;
     private String password;

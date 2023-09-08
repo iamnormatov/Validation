@@ -1,11 +1,9 @@
 package com.example.validation.service;
 
-import com.example.validation.dto.ErrorDto;
-import com.example.validation.dto.ResponseDto;
-import com.example.validation.dto.SimpleCRUD;
-import com.example.validation.dto.UserDto;
+import com.example.validation.dto.*;
 import com.example.validation.model.User;
 import com.example.validation.repository.UserRepository;
+import com.example.validation.security.JwtUtils;
 import com.example.validation.service.mapper.UserMapper;
 import com.example.validation.service.validation.UserValidation;
 import com.example.validation.util.UserRepositoryImpl;
@@ -31,6 +29,7 @@ public class UserService implements UserDetailsService {
     private final UserMapper userMapper;
     private final UserValidation userValidation;
     private final UserRepositoryImpl userRepositoryImpl;
+    private final JwtUtils jwtUtils;
 
     public ResponseDto<UserDto> create(UserDto dto) {
         List<ErrorDto> errors = this.userValidation.validate(dto);
@@ -55,6 +54,34 @@ public class UserService implements UserDetailsService {
                     .code(-2)
                     .build();
         }
+    }
+
+    public ResponseDto<TokenResponseDto> registerConfirm(RegisterConfirmDto dto) {
+        return this.userRepository.findByUsernameAndDeletedAtIsNull(dto.getUsername())
+                .map(user -> {
+                    User save = this.userRepository.save(user);
+                    String token = toJsonByUser(save);
+                    return ResponseDto.<TokenResponseDto>builder()
+                            .success(true)
+                            .message("OK")
+                            .data(TokenResponseDto.builder()
+                                    .accessToken(null)
+                                    .refreshToken(null)
+                                    .build())
+                            .build();
+                })
+                .orElse(ResponseDto.<TokenResponseDto>builder()
+                        .code(-1)
+                        .message(String.format("User %s is not found", dto.getUsername()))
+                        .build());
+    }
+
+    public ResponseDto<TokenResponseDto> login(LoginDto dto) {
+        return null;
+    }
+
+    public ResponseDto<TokenResponseDto> refreshToken(String token) {
+        return null;
     }
 
     public ResponseDto<UserDto> get(Integer entityId) {
@@ -171,7 +198,7 @@ public class UserService implements UserDetailsService {
 
     public ResponseDto<List<UserDto>> sale() {
         List<User> userList = this.userRepository.findAllByDeletedAtIsNull();
-        if (userList.isEmpty()){
+        if (userList.isEmpty()) {
             return ResponseDto.<List<UserDto>>builder()
                     .code(-1)
                     .message("User are not found")
@@ -189,6 +216,15 @@ public class UserService implements UserDetailsService {
         return this.userRepository.findByUsernameAndEnabledIsTrueAndDeletedAtIsNull(username)
                 .map(this.userMapper::toDto)
                 .orElseThrow(() -> new UsernameNotFoundException(String.format("Auth with %s :: username is not found", username)));
+    }
+
+
+    public String toJsonByUser(User dto) {
+        return "userId-" + dto.getUserId() +
+                ", firstName-'" + dto.getFirstName() + '\'' +
+                ", lastName-'" + dto.getLastName() + '\'' +
+                ", username-'" + dto.getUsername() + '\'' +
+                ", enabled-" + dto.getEnabled();
     }
 }
 

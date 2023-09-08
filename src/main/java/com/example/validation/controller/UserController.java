@@ -1,8 +1,6 @@
 package com.example.validation.controller;
 
-import com.example.validation.dto.ResponseDto;
-import com.example.validation.dto.SimpleCRUD;
-import com.example.validation.dto.UserDto;
+import com.example.validation.dto.*;
 import com.example.validation.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -24,8 +22,7 @@ public class UserController implements SimpleCRUD<Integer, UserDto> {
 
     private final UserService userService;
 
-    @PostMapping(value = "/create")
-    @Override
+    @PostMapping(value = "/register")
     @Operation(
             method = "method",
             summary = "summary",
@@ -35,8 +32,27 @@ public class UserController implements SimpleCRUD<Integer, UserDto> {
             name = "ASDFDGFHH",
             description = "erertyghi"
     )
-    public ResponseDto<UserDto> create(@RequestBody UserDto dto) {
+    public ResponseDto<UserDto> register(@RequestBody UserDto dto) {
         return this.userService.create(dto);
+    }
+
+    @PostMapping(value = "register-confirm")
+    public ResponseDto<TokenResponseDto> registerConfirm(@RequestBody RegisterConfirmDto dto){
+        return this.userService.registerConfirm(dto);
+    }
+
+    @PostMapping(value = "login")
+    public ResponseDto<TokenResponseDto> login(@RequestBody LoginDto dto){
+        return this.userService.login(dto);
+    }
+
+    public ResponseDto<TokenResponseDto> refreshToken(@RequestParam(value = "token") String token){
+        return this.userService.refreshToken(token);
+    }
+
+    @Override
+    public ResponseDto<UserDto> create(@RequestBody UserDto dto) {
+        return null;
     }
 
     @GetMapping(value = "/get/{id}")
