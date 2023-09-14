@@ -16,12 +16,16 @@ public abstract class UserMapper {
 
     @Mapping(target = "password", expression = "java(passwordEncoder.encode(userDto.getPassword()))")
     @Mapping(target = "enabled", expression = "java(true)")
-    @Mapping(target = "code", expression = "java(0000)")
     public abstract User toEntity(UserDto userDto);
 
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "deletedAt", ignore = true)
     public abstract UserDto toDto(User user);
+
+//    @Mapping(target = "updatedAt", ignore = true)
+//    @Mapping(target = "deletedAt", ignore = true)
+//    @Mapping(target = "authorities", expression = "java()")
+//    public abstract UserDto toDtoWithAuthorities(User user);
 
     @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
     public abstract void update(UserDto userDto, @MappingTarget User user);

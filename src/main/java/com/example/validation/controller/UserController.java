@@ -3,13 +3,9 @@ package com.example.validation.controller;
 import com.example.validation.dto.*;
 import com.example.validation.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.media.Content;
-import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
-import org.springframework.http.MediaType;
-import org.springframework.stereotype.Component;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -23,7 +19,7 @@ public class UserController implements SimpleCRUD<Integer, UserDto> {
     private final UserService userService;
 
     @PostMapping(value = "/register")
-    @Operation(
+        @Operation(
             method = "method",
             summary = "summary",
             description = "it's first description "
@@ -33,19 +29,25 @@ public class UserController implements SimpleCRUD<Integer, UserDto> {
             description = "erertyghi"
     )
     public ResponseDto<UserDto> register(@RequestBody UserDto dto) {
-        return this.userService.create(dto);
+        return this.userService.register(dto);
     }
 
-    @PostMapping(value = "register-confirm")
+    @PostMapping(value = "/register-confirm")
     public ResponseDto<TokenResponseDto> registerConfirm(@RequestBody RegisterConfirmDto dto){
         return this.userService.registerConfirm(dto);
     }
 
-    @PostMapping(value = "login")
+    @PostMapping(value = "/login")
     public ResponseDto<TokenResponseDto> login(@RequestBody LoginDto dto){
         return this.userService.login(dto);
     }
 
+    @PostMapping(value = "/logout")
+    public ResponseDto<UserDto> logout(@RequestBody RegisterConfirmDto dto){
+        return this.userService.logout(dto);
+    }
+
+    @GetMapping(value = "/refresh-token")
     public ResponseDto<TokenResponseDto> refreshToken(@RequestParam(value = "token") String token){
         return this.userService.refreshToken(token);
     }

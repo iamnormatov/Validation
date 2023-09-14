@@ -49,8 +49,9 @@ public class SecurityConfig {
                 .csrf().disable()
                 .cors().disable()
                 .authorizeHttpRequests()
-                .requestMatchers("/book/**").permitAll()
-                .anyRequest().authenticated().and()
+                .requestMatchers("/book/**", "/user/**").permitAll()
+                .anyRequest()
+                .authenticated().and()
                 .addFilterBefore(filter, UsernamePasswordAuthenticationFilter.class)
                 .build();
     }

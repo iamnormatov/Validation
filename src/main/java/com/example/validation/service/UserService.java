@@ -1,20 +1,25 @@
 package com.example.validation.service;
 
 import com.example.validation.dto.*;
+import com.example.validation.model.Authorities;
 import com.example.validation.model.User;
+import com.example.validation.model.UserAccessSession;
+import com.example.validation.model.UserRefreshSession;
+import com.example.validation.repository.AuthoritiesRepository;
+import com.example.validation.repository.UserAccessRepository;
+import com.example.validation.repository.UserRefreshRepository;
 import com.example.validation.repository.UserRepository;
 import com.example.validation.security.JwtUtils;
 import com.example.validation.service.mapper.UserMapper;
 import com.example.validation.service.validation.UserValidation;
 import com.example.validation.util.UserRepositoryImpl;
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
-import org.springframework.web.bind.annotation.RequestParam;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -25,13 +30,16 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class UserService implements UserDetailsService {
 
+    private final AuthoritiesRepository authoritiesRepository;
     private final UserRepository userRepository;
     private final UserMapper userMapper;
     private final UserValidation userValidation;
     private final UserRepositoryImpl userRepositoryImpl;
     private final JwtUtils jwtUtils;
+    private final UserRefreshRepository userRefreshRepository;
+    private final UserAccessRepository userAccessRepository;
 
-    public ResponseDto<UserDto> create(UserDto dto) {
+    public ResponseDto<UserDto> register(UserDto dto) {
         List<ErrorDto> errors = this.userValidation.validate(dto);
         if (!errors.isEmpty()) {
             return ResponseDto.<UserDto>builder()
@@ -40,13 +48,18 @@ public class UserService implements UserDetailsService {
                     .build();
         }
         try {
-            User user = this.userMapper.toEntity(dto);
-            user.setCreatedAt(LocalDateTime.now());
-            this.userRepository.save(user);
+            var entity = this.userMapper.toEntity(dto);
+            entity.setCreatedAt(LocalDateTime.now());
+            User saveUser = this.userRepository.save(entity);
+            this.authoritiesRepository.save(Authorities.builder()
+                    .userId(saveUser.getUserId())
+                    .authority("user")
+                    .username(saveUser.getUsername())
+                    .build());
             return ResponseDto.<UserDto>builder()
                     .success(true)
                     .message("OK")
-                    .data(this.userMapper.toDto(user))
+                    .data(this.userMapper.toDto(saveUser))
                     .build();
         } catch (Exception e) {
             return ResponseDto.<UserDto>builder()
@@ -56,17 +69,23 @@ public class UserService implements UserDetailsService {
         }
     }
 
+    @Transactional
     public ResponseDto<TokenResponseDto> registerConfirm(RegisterConfirmDto dto) {
         return this.userRepository.findByUsernameAndDeletedAtIsNull(dto.getUsername())
                 .map(user -> {
-                    User save = this.userRepository.save(user);
-                    String token = toJsonByUser(save);
+                    User saveUser = this.userRepository.save(user);
+                    String newSubject = toJsonByUser(saveUser);
+
+                    checkValidToken(newSubject);
+
+                    saveUserSession(newSubject, this.userMapper.toDto(user));
+
                     return ResponseDto.<TokenResponseDto>builder()
                             .success(true)
                             .message("OK")
                             .data(TokenResponseDto.builder()
-                                    .accessToken(null)
-                                    .refreshToken(null)
+                                    .accessToken(this.jwtUtils.generateToken(newSubject))
+                                    .refreshToken(this.jwtUtils.generateToken(newSubject))
                                     .build())
                             .build();
                 })
@@ -77,11 +96,103 @@ public class UserService implements UserDetailsService {
     }
 
     public ResponseDto<TokenResponseDto> login(LoginDto dto) {
-        return null;
+        return this.userRepository.findByUsernameAndEnabledIsTrueAndDeletedAtIsNull(dto.getUsername())
+                .map(user -> {
+                    String newSubject = toJsonByUser(user);
+                    checkValidToken(newSubject);
+
+                    saveUserSession(newSubject, this.userMapper.toDto(user));
+
+                    this.userAccessRepository.save(new UserAccessSession(
+                            newSubject,
+                            this.userMapper.toDto(user))
+                    );
+                    this.userRefreshRepository.save(new UserRefreshSession(
+                            newSubject,
+                            this.userMapper.toDto(user))
+                    );
+                    return ResponseDto.<TokenResponseDto>builder()
+
+                            .build();
+                })
+                .orElse(ResponseDto.<TokenResponseDto>builder()
+                        .code(-1)
+                        .message(String.format("User %s is not found", dto.getUsername()))
+                        .build());
     }
 
     public ResponseDto<TokenResponseDto> refreshToken(String token) {
-        return null;
+        if (!this.jwtUtils.isValid(token)) return ResponseDto.<TokenResponseDto>builder()
+                .code(-3)
+                .message("Token is not valid!")
+                .build();
+
+        return this.userRefreshRepository.findById(token)
+                .map(userRefreshSession -> {
+
+                    checkValidToken(token);
+
+                    UserDto userDto = userRefreshSession.getUserDto();
+
+                    User userEntity = this.userMapper.toEntity(userDto);
+                    userEntity.setEnabled(true);
+                    String newSubject = toJsonByUser(userEntity);
+
+                    saveUserSession(newSubject, this.userMapper.toDto(userEntity));
+
+                    var newToken = this.jwtUtils.generateToken(newSubject);
+
+                    return ResponseDto.<TokenResponseDto>builder()
+                            .success(true)
+                            .message("OK")
+                            .data(TokenResponseDto.builder()
+                                    .accessToken(newToken)
+                                    .refreshToken(newToken)
+                                    .build())
+                            .build();
+                })
+                .orElse(ResponseDto.<TokenResponseDto>builder()
+                        .code(-1)
+                        .message(String.format("User with token %s is not found!", token))
+                        .build()
+                );
+    }
+
+    public ResponseDto<UserDto> logout(RegisterConfirmDto dto) {
+        return this.userRepository.findByUsernameAndEnabledIsTrueAndDeletedAtIsNull(dto.getUsername())
+                .map(user -> {
+                    user.setEnabled(false);
+                    this.userRepository.save(user);
+                    return ResponseDto.<UserDto>builder()
+                            .success(true)
+                            .message("OK")
+                            .build();
+                })
+                .orElse(ResponseDto.<UserDto>builder()
+                        .code(-1)
+                        .message(String.format("User with %s username is not found!", dto.getUsername()))
+                        .build()
+                );
+    }
+
+    private void checkValidToken(String token) {
+        this.userAccessRepository.findById(token)
+                .ifPresent(this.userAccessRepository::delete);
+
+        this.userRefreshRepository.findById(token)
+                .ifPresent(this.userRefreshRepository::delete);
+    }
+
+    private void saveUserSession(String sessionId, UserDto userDto) {
+        this.userAccessRepository.save(new UserAccessSession(
+                        sessionId, userDto
+                )
+        );
+
+        this.userRefreshRepository.save(new UserRefreshSession(
+                        sessionId, userDto
+                )
+        );
     }
 
     public ResponseDto<UserDto> get(Integer entityId) {
@@ -226,5 +337,7 @@ public class UserService implements UserDetailsService {
                 ", username-'" + dto.getUsername() + '\'' +
                 ", enabled-" + dto.getEnabled();
     }
+
+
 }
 
